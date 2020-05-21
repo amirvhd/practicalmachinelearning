@@ -1,0 +1,61 @@
+---
+title: "Practical machine learning course project"
+author: "Amirhossein vahidi"
+date: "5/21/2020"
+output: html_document
+---
+This document is my project for the Coursera course Practical machine learning. In this project, we use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to predict how they did the exercise.  
+Executive summary
+In this projecct, we have 19622 observations for over 180 features. First, the variability of different features is evaluated to find essential features. Then, the features are preprocessed. The k fold cross-validation is used for cross-validation. And random forest algorithm is used for modelling with accuracy over 97 percent.
+After importing data, zero covariants are removed with function nsv.
+```{r practicalmachinelearning,echo=TRUE}
+library(caret)
+library("readxl")
+training = read.csv("C:\\Users\\vh\\Desktop\\pml-training.csv")
+testing = read.csv("C:\\Users\\vh\\Desktop\\pml-testing.csv")
+nsv <- nearZeroVar(training,saveMetrics = FALSE)
+training <- training[,-nsv]
+testing <- testing[,-nsv]
+training$cvtd_timestamp <- as.numeric(training$cvtd_timestamp)
+testing$cvtd_timestamp <- as.numeric(testing$cvtd_timestamp)
+training <- training[,2:100]
+testing <- testing[,2:100]
+summary(training)
+```
+As you can see in the summary of data, some of the features have too many NA values. Some of the features are highly correlated. Features that are correlated are in the  following:
+
+```{r echo=TRUE}
+cr<-cor(training[,2:98])
+diag(cr)<-NA
+c<-which(cr>0.7,arr.ind = T)
+corr<-unique(c[,2])
+corr
+```
+To have better and fewer features and also solve the problem of too many NA values for some features, data are preprocessed with two method PCA and bagImpute for features with NA value. So the numbers of features are twenty now. After preprocessing, ten-fold cross-validation is used in train control function. The random forest algorithm has better accuracy than the tree algorithm, and also it is better for classification prediction. The final accuracy is over 0.97 percent.    
+
+```{r echo=TRUE}
+pre<-preProcess(training[,-99], 
+                 method = c("pca","bagImpute"),   
+                 pcaComp = 20
+                 )
+trainpc<-predict(pre,training[,-99])
+trainpc <- cbind(trainpc,classe = training$classe)
+set.seed(1)
+train.control <- trainControl(method="cv", number = 10)
+fit<- train(classe~., method = "rf",data=trainpc,trControl = train.control)
+print(fit)
+```
+The optimizzed tuning parameters (mtry) is 13
+```{r echo=TRUE}
+plot(fit)
+```
+The out of sample error is around 2.5 percent.
+```{r echo=TRUE}
+fit$finalModel
+```
+After using preprocess results to modify the test data, Class for test is predicted. 
+```{r echo=TRUE}
+testpca <- predict(pre,testing)
+pred1<-predict(fit,testpca)
+qplot(testpca$problem_id,pred1,xlab = "Problem_id" ,ylab = "Prediction" )
+```
